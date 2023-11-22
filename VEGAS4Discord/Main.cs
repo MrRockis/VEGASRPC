@@ -59,10 +59,16 @@ namespace VegasDiscordRPC
             DiscordRpc.Shutdown();
         }
 
+        private long startTime;
+
         public void InitializeModule(Vegas vegas)
         {
             resetPresence(ref presence, vegas);
-            DiscordRpc.Initialize("434711433112977427", ref callbacks, true, string.Empty);
+            DiscordRpc.Initialize("1088784098564259970", ref callbacks, true, string.Empty);
+
+            startTime = unixTimestamp(DateTime.UtcNow);
+            presence.startTimestamp = startTime;
+
             presence.details = "Idling";
             vegas.TrackCountChanged += (a, b) => UpdateTrackNumber(vegas);
             vegas.TrackEventCountChanged += (a, b) => UpdateTrackNumber(vegas);
@@ -86,7 +92,7 @@ namespace VegasDiscordRPC
             {
                 SecondsSinceLastAction += 10;
             }
-            else if (SecondsSinceLastAction >= 60 && !isActive)
+            else if (SecondsSinceLastAction >= 300 && !isActive)
             {
                 resetPresence(ref presence, DomainManager.VegasDomainManager.GetVegas());
                 presence.details = "Idling";
@@ -106,36 +112,13 @@ namespace VegasDiscordRPC
             if (!PresenceEnabled)
                 return;
 
-            int vegasVersion = int.Parse(vegas.Version.Split(' ')[1].Split('.')[0]);
-            string verKey;
-
-            switch (vegasVersion) {
-                case >= 13 and < 15:
-                {
-                    verKey = $"v{vegasVersion}";
-                    break;
-                }
-                case >= 15 and <= 18:
-                {
-                    verKey = "v15";
-                    break;
-                }
-                case >18:
-                {
-                    verKey = "v19";
-                    break;
-                }
-                default:
-                {
-                    verKey = "v13";
-                    break;
-                }
-            }
+            int version = int.Parse(vegas.Version.Split(' ')[1].Split('.')[0]);
+            String largeKey = "vegas_" + version + "_logo";
 
             pres = new DiscordRpc.RichPresence
             {
-                largeImageKey = verKey,
-                largeImageText = vegas.Version
+                largeImageKey = largeKey,
+                largeImageText = vegas.Version,
             };
             if (smallKey != "")
             {
@@ -145,6 +128,8 @@ namespace VegasDiscordRPC
             {
                 pres.smallImageText = smallText;
             }
+
+            pres.startTimestamp = startTime;
         }
 
         public void RenderStarted(Vegas vegas)
@@ -156,7 +141,6 @@ namespace VegasDiscordRPC
             SecondsSinceLastAction = 0;
             isActive = true;
             resetPresence(ref presence, vegas);
-            presence.startTimestamp = unixTimestamp(DateTime.UtcNow);
             presence.details = "";
             presence.state = "Rendering... (0%)";
             DiscordRpc.UpdatePresence(ref presence);
@@ -212,37 +196,13 @@ namespace VegasDiscordRPC
 
             SecondsSinceLastAction = 0;
             resetPresence(ref presence, vegas);
-            if (vegas.Project.Tracks.Count != 0)
-            {
-                int videotracks = vegas.Project.Tracks.Where(x => x.GetType() == typeof(VideoTrack)).Count();
-                int audiotracks = vegas.Project.Tracks.Where(x => x.GetType() == typeof(AudioTrack)).Count();
 
-                presence.details = "Editing";
-                if (videotracks > 0 && audiotracks == 0)
-                {
-                    presence.state = "Video Only";
-                    presence.partySize = videotracks;
-                    presence.partyMax = videotracks;
-                }
-                else if (videotracks > 0 && audiotracks > 0)
-                {
-                    presence.state = "Video and Audio";
-                    presence.partySize = videotracks;
-                    presence.partyMax = audiotracks + videotracks;
-                }
-                else if (videotracks == 0 && audiotracks > 0)
-                {
-                    presence.state = "Audio Only";
-                    presence.partySize = audiotracks;
-                    presence.partyMax = audiotracks;
-                }
-                DiscordRpc.UpdatePresence(ref presence);
-            }
-            else
-            {
-                presence.details = "No tracks";
-                DiscordRpc.UpdatePresence(ref presence);
-            }
+            String fileName = vegas.Project.FilePath;
+
+            fileName = fileName.Split('\\').Last();
+
+            presence.details = fileName;
+            DiscordRpc.UpdatePresence(ref presence);
         }
 
         public void TogglePresence(Vegas vegas)
@@ -262,7 +222,7 @@ namespace VegasDiscordRPC
                 idleTimer.Start();
                 PresenceEnabled = true;
                 resetPresence(ref presence, vegas);
-                DiscordRpc.Initialize("434711433112977427", ref callbacks, true, string.Empty);
+                DiscordRpc.Initialize("1088784098564259970", ref callbacks, true, string.Empty);
                 UpdateTrackNumber(vegas);
             }
         }
