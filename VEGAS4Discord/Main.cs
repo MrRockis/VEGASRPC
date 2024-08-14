@@ -69,9 +69,9 @@ namespace VegasDiscordRPC
             startTime = unixTimestamp(DateTime.UtcNow);
             presence.startTimestamp = startTime;
 
-            presence.details = "Idling";
-            vegas.TrackCountChanged += (a, b) => UpdateTrackNumber(vegas);
-            vegas.TrackEventCountChanged += (a, b) => UpdateTrackNumber(vegas);
+            presence.state = "Idling";
+            vegas.TrackCountChanged += (a, b) => UpdateDetails(vegas);
+            vegas.TrackEventCountChanged += (a, b) => UpdateDetails(vegas);
             vegas.PlaybackStarted += (a, b) => { isActive = true; GenericNonIdleAction(vegas); };
             vegas.PlaybackStopped += (a, b) => { isActive = false; GenericNonIdleAction(vegas); };
             vegas.ProjectSaving += (a, b) => GenericNonIdleAction(vegas);
@@ -95,7 +95,7 @@ namespace VegasDiscordRPC
             else if (SecondsSinceLastAction >= 300 && !isActive)
             {
                 resetPresence(ref presence, DomainManager.VegasDomainManager.GetVegas());
-                presence.details = "Idling";
+                presence.state = "Idling";
                 DiscordRpc.UpdatePresence(ref presence);
             }
         }
@@ -130,18 +130,17 @@ namespace VegasDiscordRPC
             }
 
             pres.startTimestamp = startTime;
+            presence.details = GetProjectName(vegas);
         }
 
         public void RenderStarted(Vegas vegas)
         {
-
             if (!PresenceEnabled)
                 return;
 
             SecondsSinceLastAction = 0;
             isActive = true;
             resetPresence(ref presence, vegas);
-            presence.details = "";
             presence.state = "Rendering... (0%)";
             DiscordRpc.UpdatePresence(ref presence);
         }
@@ -151,7 +150,6 @@ namespace VegasDiscordRPC
             if (!PresenceEnabled)
                 return;
 
-            presence.details = "";
             presence.state = $"Rendering... ({renderargs.PercentComplete}%)";
             DiscordRpc.UpdatePresence(ref presence);
         }
@@ -166,6 +164,7 @@ namespace VegasDiscordRPC
             isActive = false;
             presence = new DiscordRpc.RichPresence();
             resetPresence(ref presence, vegas);
+
             switch (renderargs.Status)
             {
                 case RenderStatus.Complete:
@@ -186,10 +185,10 @@ namespace VegasDiscordRPC
             if (!PresenceEnabled)
                 return;
             SecondsSinceLastAction = 0;
-            UpdateTrackNumber(vegas);
+            UpdateDetails(vegas);
         }
 
-        public void UpdateTrackNumber(Vegas vegas)
+        public void UpdateDetails(Vegas vegas)
         {
             if (!PresenceEnabled)
                 return;
@@ -197,12 +196,13 @@ namespace VegasDiscordRPC
             SecondsSinceLastAction = 0;
             resetPresence(ref presence, vegas);
 
-            String fileName = vegas.Project.FilePath;
-
-            fileName = fileName.Split('\\').Last();
-
-            presence.details = fileName;
+            presence.state = "Editing";
             DiscordRpc.UpdatePresence(ref presence);
+        }
+
+        public String GetProjectName(Vegas vegas)
+        {
+            return (vegas.Project.IsUntitled ? "Untitled" : vegas.Project.FilePath.Split('\\').Last());
         }
 
         public void TogglePresence(Vegas vegas)
@@ -223,7 +223,7 @@ namespace VegasDiscordRPC
                 PresenceEnabled = true;
                 resetPresence(ref presence, vegas);
                 DiscordRpc.Initialize("1088784098564259970", ref callbacks, true, string.Empty);
-                UpdateTrackNumber(vegas);
+                UpdateDetails(vegas);
             }
         }
 
